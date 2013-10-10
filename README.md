@@ -17,9 +17,36 @@ Maven users will need to add the following dependency to their pom.xml for this 
 ```
 
 
-Building JBoss Fuse
-===================
+URI Format
+==========
 
+    > webhdfs://hostname[:port][/path][?options]
+
+You can append query options to the URI in the following format, ?option=value&option=value&...   
+
+
+Options
+=======
+
+| Name        | Default Value           | Description  |
+| ------------- |:-------------:| -----:|
+| col 3 is      | right-aligned | $1600 |
+| col 2 is      | centered      |   $12 |
+| zebra stripes | are neat      |    $1 |
+
+
+
+
+There are three main build targets associated with corresponding maven profiles
+
+* fab: Fuse Fabric
+* amq: Fuse A-MQ
+* esb: Fuse ESB
+* release: All of the above
+
+
+Building JBOSS Fuse
+===================
 There are three main build targets associated with corresponding maven profiles
 
 * fab: Fuse Fabric
