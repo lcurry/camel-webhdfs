@@ -30,7 +30,7 @@ Options
 
 | Name        | Default Value           | Description  |
 | ------------- |-------------|-----|
-| path      | Null | The path option specifies a sub-directory (or directories) to wite files into HDFS. The location a file is written into HDFS is determined by: the primary path (specified before the query options in the URI) + the value specified for the path option. The value of path option is appended onto the end of the primary path.|
+| path      | Null | The path option specifies a sub-directory (or directories) to wite files into HDFS. The location written to in HDFS is determined by: the primary path (specified before the query options in the URI) + the value specified for the path option. The value of path option is appended onto the end of the primary path.|
 | key      | Null      | An expression that specifies the correlation key. The value of the expression determines which "correlation group" a message belongs to. All messages sent with the same key will be aggregated into same file.  |
 | aggregationSize | 128000 (128KB)      | In bytes, size of all aggregated messages for a given message group. This will determine the cululative size of files written to HDFS. |
 | aggregationTimeout | 300000 (5 mins)     | In ms, All messages of the same message group are appended to the same file. Whenever the  aggregationTimeout expires for a message group, a new file is created to hold subsequent messages associated with the group. The aggregationTimeout is measured as idle time (no messages arrive) for a message group.|
