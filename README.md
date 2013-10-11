@@ -55,10 +55,9 @@ Or in Spring XML
 <route>
 ```
 
-
 The implementation of the Camel WEBHDFS component leverages many features of the Aggregator pattern. 
-The aggregator is a generic component offered by Apache Camel. More information is available on the Camel Aggregator here:
-http://camel.apache.org/aggregator2.html
+The aggregator is a generic component offered by Apache Camel. More information is available on the Camel 
+Aggregator see [see](http://camel.apache.org/aggregator2.html).
 
 
 Message Groups
