@@ -29,7 +29,7 @@ Options
 =======
 
 | Name        | Default Value           | Description  |
-| ------------- |:-------------:| -----:|
+| ------------- |-------------|-----|
 | path      | Null | The path option specifies a sub-directory (or directories) to wite files into HDFS. The location a file is written into HDFS is determined by: the primary path (specified before the query options in the URI) + the value specified for the path option. The value of path option is appended onto the end of the primary path.|
 | key      | Null      | An expression that specifies the correlation key. The value of the expression determines which "correlation group" a message belongs to. All messages sent with the same key will be aggregated into same file.  |
 | aggregationSize | 128000 (128KB)      | In bytes, size of all aggregated messages for a given message group. This will determine the cululative size of files written to HDFS. |
