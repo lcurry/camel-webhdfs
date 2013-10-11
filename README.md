@@ -1,6 +1,5 @@
 WEBHDFS Component
 =============
-
 A camel component that uses the WEBHDFS API to communicate with Hadoop.
 This component enables you to write messages into an HDFS file system.
 WEBHDFS is the RESTful API into Hadoop. 
@@ -16,7 +15,6 @@ Maven users will need to add the following dependency to their pom.xml for this 
 		</dependency>
 ```
 
-
 URI Format
 ==========
 
@@ -24,17 +22,18 @@ URI Format
 
 You can append query options to the URI in the following format, ?option=value&option=value&...   
 
-
 Options
 =======
 
 | Name        | Default Value           | Description  |
 | ------------- |-------------|-----|
-| path      | Null | An expression that specifies a sub-directory (or directories) to wite files into HDFS. The location written to in HDFS is determined by: the primary path (specified before the query options in the URI) + the value specified for the path option. The value of path option is appended onto the end of the primary path.|
+| defaultDataDir      | /user/fuse | Specifies default location to wite files into HDFS. |
+| path      | Null | An expression that specifies a sub-directory (or directories), relative to the 'defaultDataDir' to wite files into HDFS. The ultimate location where the file is written is determined by appending the value of the path option (if specified) onto the end of the defaultDataDir.|
 | key      | Null      | An expression that specifies the correlation key. The value of the expression determines which "correlation group" a message belongs to. All messages sent with the same key will be aggregated into same file.  |
 | aggregationSize | 128000000 (128MB)      | In bytes, size of all aggregated messages for a given message group. This will determine the cumulative size of files written to HDFS. |
 | aggregationTimeout | 300000 (5 mins)     | In ms, All messages of the same message group are appended to the same file. Whenever the  aggregationTimeout expires for a message group, a new file is created to hold subsequent messages associated with the group. The aggregationTimeout is measured as idle time (no messages arrive) for a message group.|
-
+| fileExtension | txt     | File extension of messages written to hdfs. |
+| username | fuse     | The username the component will use for webhdfs HTTP calls to Hadoop server. |
 
 Usage
 =====
@@ -51,14 +50,18 @@ Or in Spring XML
 ```xml
 <route>
     <from uri="activemq:queue:foo"/>
-    <to uri="webhdfs://localhost:50070/webhdfs/v1/user/fuse?path=${header.path}&amp;key=${header.key}"/>
+    <to uri="webhdfs://localhost:50070/webhdfs/v1?path=${header.path}&amp;key=${header.key}"/>
 <route>
 ```
 
+Note: In the current version of the REST API, the prefix "/webhdfs/v1" is inserted as the value of
+the path (specified before the query options in the URI of the webhdfs endpoint.)
+
+Brief Background On The Aggregator Pattern
+==========================================
 The implementation of the Camel WEBHDFS component leverages many features of the Aggregator pattern. 
 The aggregator is a generic component offered by Apache Camel. More information is available on the Camel 
 Aggregator see [see](http://camel.apache.org/aggregator2.html).
-
 
 Message Groups
 ==============
@@ -99,22 +102,21 @@ Default Logic
 =============
 The logic used for path is as follows:
 * 'path' as-is if included in client request.
-* If no 'path' header specified, take path value as the primary path configured on webhdfs endpoint URI (the primary path is the path specified before the query options in the URI of the webhdfs endpoint.) 
+* If no 'path' header specified, set path value to be 'defaultDataDir' configured on webhdfs endpoint.
 The logic used for correlation key is as follows:
 * If no 'key' header specified, use 'path' header for correlation key.
 * If 'key' is included by client in request, append the 'path' property to this 'key' to arrive at final 'key' value.
-* If no 'path' header or key specified, take key value as the use the primary path configured on webhdfs endpoint URI (the primary path is the path specified before the query options in the URI of the webhdfs endpoint.) 
+* If no 'path' header or key specified, set key value to be 'defaultDataDir' configured on webhdfs endpoint.
         
-        
-Example
-=======
+More Examples
+=============
 
 The following route listens for incoming HTTP messages and routes to HDFS.
 
 ```xml
 <route>
     <from uri="jetty:http://0.0.0.0:5160/ingestion/incoming"/>
-    <to uri="webhdfs://localhost:50070/webhdfs/v1/user/fuse?path=${header.path}&amp;key=${header.key}&amp;aggregationSize=64000&amp;aggregationTimeout=3000"/>
+    <to uri="webhdfs://localhost:50070/webhdfs/v1?path=${header.path}&amp;key=${header.key}&amp;aggregationSize=64000&amp;aggregationTimeout=3000"/>
 <route>
 ```
 
@@ -123,14 +125,27 @@ parameters. This gives clients control over how messages are grouped into files 
 
 For example, if client sends the following to above route:
 
-    > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming
-    
-    
-    > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming?key=mytest&path=/test1
+    > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming"
+    > hadoop fs -ls /user/fuse
+    > Found 1 items 
+    > drwxr-xr-x   - fuse fuse  12 2013-09-10 09:45 /user/fuse/user_fuse_20131010142348492.txt
 
-All messages sent with the same key 'mytest' will be aggregated into same file.
+All messages sent with the same key 'mytest1' will be aggregated into same file.
 
-    > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming
+    > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming?key=mytest1&path=/test1
+    > hadoop fs -ls /user/fuse/test1
+    > Found 1 items 
+    > drwxr-xr-x   - fuse fuse  12 2013-09-10 09:47 /user/fuse/test1/user_fuse_test1_mytest1_20131010142348804.txt
+    > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming?key=mytest1&path=/test1
+    > hadoop fs -ls /user/fuse/test1
+    > Found 1 items 
+    > drwxr-xr-x   - fuse fuse  24 2013-09-10 09:47 /user/fuse/test1/user_fuse_test1_mytest1_20131010142348804.txt
     
-With the above route configuration, specifying 'path=/test1' in the query string will result in the file being written to '/user/fuse/test1'. 
+A new key 'mytest2' will create a new message group and all messages sent with that key will go to a different file.
+
+    > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming?key=mytest2&path=/test1
+    > hadoop fs -ls /user/fuse/test1
+    > Found 2 items 
+    > drwxr-xr-x   - fuse fuse  24 2013-09-10 09:47 /user/fuse/test1/user_fuse_test1_mytest1_20131010142348804.txt
+    > drwxr-xr-x   - fuse fuse  12 2013-09-10 09:49 /user/fuse/test1/user_fuse_test1_mytest2_20131010142349905.txt
 
