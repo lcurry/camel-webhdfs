@@ -87,9 +87,12 @@ completion condition will determine how files get broken up into reasonable size
 for your environment. The values on these limits are configurable. You can control the frequency 
 and size of files that the component writes into Hadoop by configuring values for completion conditions.  
 The component will continue to append all messages belonging to the same message group, until either one of the 
+
 following two completion conditions occur.
-aggregationTimeout – This configures the amount of time, in milliseconds, that a message group will remain active. The time measures idle time (no messages arrive.) Whenever a message arrives for a given message group, the timer starts over for that particular message group. If the timeout ever expires for a message group, the file will be written and no further messages will be appended to that file. 
-aggregationSize – The component keeps track of the total size of all messages sent to it for a given message group. Once this configured size is reached, the condition will trigger and the final message is written, and no further messages will be appended to that file.
+
+* aggregationTimeout – This configures the amount of time, in milliseconds, that a message group will remain active. The time measures idle time (no messages arrive.) Whenever a message arrives for a given message group, the timer starts over for that particular message group. If the timeout ever expires for a message group, the file will be written and no further messages will be appended to that file. 
+* aggregationSize – The component keeps track of the total size of all messages sent to it for a given message group. Once this configured size is reached, the condition will trigger and the final message is written, and no further messages will be appended to that file.
+
 As soon as one of the above limits is met for a given message group, the completion condition will fire. The message that caused the completion condition to trigger will be the last message written to the file. At that point, the file associated with the message group will be marked as done and no more messages are written to that file. Subsequent messages will be assigned to a new message group, and written to a new file.
 
 
