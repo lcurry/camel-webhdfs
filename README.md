@@ -32,7 +32,7 @@ Options
 | ------------- |-------------|-----|
 | path      | Null | An expression that specifies a sub-directory (or directories) to wite files into HDFS. The location written to in HDFS is determined by: the primary path (specified before the query options in the URI) + the value specified for the path option. The value of path option is appended onto the end of the primary path.|
 | key      | Null      | An expression that specifies the correlation key. The value of the expression determines which "correlation group" a message belongs to. All messages sent with the same key will be aggregated into same file.  |
-| aggregationSize | 128000 (128KB)      | In bytes, size of all aggregated messages for a given message group. This will determine the cumulative size of files written to HDFS. |
+| aggregationSize | 128000000 (128MB)      | In bytes, size of all aggregated messages for a given message group. This will determine the cumulative size of files written to HDFS. |
 | aggregationTimeout | 300000 (5 mins)     | In ms, All messages of the same message group are appended to the same file. Whenever the  aggregationTimeout expires for a message group, a new file is created to hold subsequent messages associated with the group. The aggregationTimeout is measured as idle time (no messages arrive) for a message group.|
 
 
@@ -95,76 +95,42 @@ following two completion conditions occur.
 
 As soon as one of the above limits is met for a given message group, the completion condition will fire. The message that caused the completion condition to trigger will be the last message written to the file. At that point, the file associated with the message group will be marked as done and no more messages are written to that file. Subsequent messages will be assigned to a new message group, and written to a new file.
 
+Default Logic
+=============
+The logic used for path is as follows:
+* 'path' as-is if included in client request.
+* If no 'path' header specified, take path value as the primary path configured on webhdfs endpoint URI (the primary path is the path specified before the query options in the URI of the webhdfs endpoint.) 
+The logic used for correlation key is as follows:
+* If no 'key' header specified, use 'path' header for correlation key.
+* If 'key' is included by client in request, append the 'path' property to this 'key' to arrive at final 'key' value.
+* If no 'path' header or key specified, take key value as the use the primary path configured on webhdfs endpoint URI (the primary path is the path specified before the query options in the URI of the webhdfs endpoint.) 
+        
+        
+Example
+=======
 
+The following route listens for incoming HTTP messages and routes to HDFS.
 
-There are three main build targets associated with corresponding maven profiles
+```xml
+<route>
+    <from uri="jetty:http://0.0.0.0:5160/ingestion/incoming"/>
+    <to uri="webhdfs://localhost:50070/webhdfs/v1/user/fuse?path=${header.path}&amp;key=${header.key}&amp;aggregationSize=64000&amp;aggregationTimeout=3000"/>
+<route>
+```
 
-* fab: Fuse Fabric
-* amq: Fuse A-MQ
-* esb: Fuse ESB
-* release: All of the above
+The above route will allow client sending HTTP messages to specify query string that contains (optional) 'path' and 'key' 
+parameters. This gives clients control over how messages are grouped into files and where files are written.
 
+For example, if client sends the following to above route:
 
-Building JBOSS Fuse
-===================
-There are three main build targets associated with corresponding maven profiles
-
-* fab: Fuse Fabric
-* amq: Fuse A-MQ
-* esb: Fuse ESB
-* release: All of the above
-
-Examples
---------
-
-Build Fuse Fabric and run the associated smoke tests
-
-    > mvn clean install
+    > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming
     
-Build Fuse A-MQ and run the associated tests
-
-    > mvn -Pamq clean install
     
-Build Fuse ESB and run the associated tests
+    > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming?key=mytest&path=/test1
 
-    > mvn -Pesb clean install
+All messages sent with the same key 'mytest' will be aggregated into same file.
+
+    > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming
     
-Build all modules and run the associated smoke tests
+With the above route configuration, specifying 'path=/test1' in the query string will result in the file being written to '/user/fuse/test1'. 
 
-    > mvn -Prelease clean install
-
-Note, to avoid getting prompted for a gpg key add **-Dgpg.skip=true**
-
-If you want to build everything without running tests and get right to running fabric with a default user
-
-    > mvn clean install -Dtest=false -Dgpg.skip=true -Pdev,release
-    
-Test Profiles
--------------
-
-Fuse Fabric tests are seperated in serveral dedicated tests profiles
-
-* ts.smoke:   Smoke tests
-* ts.basic:   Basic integration tests
-* ts.wildfly: WildFly integration tests
-* ts.all:     All of the above
-
-Examples
---------
-
-Build Fuse Fabric and run the smoke and basic integration tests
-
-    > mvn -Dts.basic clean install
-    
-Build Fuse Fabric and run all tests
-
-    > mvn -Dts.all clean install
-    
-Build all modules and run all tests
-
-    > mvn -Prelease -Dts.all clean install
-    
-Build Fuse Fabric and skip the smoke tests
-
-    > mvn -Dts.skip.smoke clean install
-    
