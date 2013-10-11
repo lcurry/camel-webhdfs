@@ -101,12 +101,13 @@ As soon as one of the above limits is met for a given message group, the complet
 Default Logic
 =============
 The logic used for path is as follows:
-* 'path' as-is if included in client request.
-* If no 'path' header specified, set path value to be 'defaultDataDir' configured on webhdfs endpoint.
+ * 'path' as-is if included in client request.
+ * If no 'path' header specified, set path value to be 'defaultDataDir' configured on webhdfs endpoint.
+
 The logic used for correlation key is as follows:
-* If no 'key' header specified, use 'path' header for correlation key.
-* If 'key' is included by client in request, append the 'path' property to this 'key' to arrive at final 'key' value.
-* If no 'path' header or key specified, set key value to be 'defaultDataDir' configured on webhdfs endpoint.
+ * If no 'key' header specified, use 'path' header for correlation key.
+ * If 'key' is included by client in request, append the 'path' property to this 'key' to arrive at final 'key' value.
+ * If no 'path' header or key specified, set key value to be 'defaultDataDir' configured on webhdfs endpoint.
         
 More Examples
 =============
