@@ -27,12 +27,12 @@ Options
 
 | Name        | Default Value           | Description  |
 | ------------- |-------------|-----|
-| defaultDataDir      | /user/fuse | Specifies default location to wite files into HDFS. |
-| path      | Null | An expression that specifies a sub-directory (or directories), relative to the 'defaultDataDir' to wite files into HDFS. The ultimate location where the file is written is determined by appending the value of the path option (if specified) onto the end of the defaultDataDir.|
-| key      | Null      | An expression that specifies the correlation key. The value of the expression determines which "correlation group" a message belongs to. All messages sent with the same key will be aggregated into same file.  |
-| aggregationSize | 128000000 (128MB)      | In bytes, size of all aggregated messages for a given message group. This will determine the cumulative size of files written to HDFS. |
+| default.data.dir      | /user/fuse | Specifies default location to wite files into HDFS. |
+| path      | Null | An expression that specifies a sub-directory (or directories), relative to the 'default.data.dir' to wite files into HDFS. The ultimate location where the file is written is determined by appending the value of this 'path' option (if specified) onto the end of the 'default.data.dir'.|
+| key      | Null      | An expression that specifies the correlation key. The value of the expression determines which correlation group a message belongs to. All messages sent with the same key will be aggregated into same file, up to a designated completion condition. See options aggregationSize and aggregationTimeout below for specifying competion conditions.  |
+| aggregationSize | 128000000 (128MB)      | In bytes, total size of all aggregated messages for a given message group. The message that causes this number of bytes received to be exceeded for a message group, will cause the completion condition to fire and will be the last message to be written to the file. This option will determine the cumulative size of files written to HDFS. |
 | aggregationTimeout | 300000 (5 mins)     | In ms, All messages of the same message group are appended to the same file. Whenever the  aggregationTimeout expires for a message group, a new file is created to hold subsequent messages associated with the group. The aggregationTimeout is measured as idle time (no messages arrive) for a message group.|
-| fileExtension | txt     | File extension of messages written to hdfs. |
+| fileExtension | txt     | File extension of all files written to hdfs. |
 | username | fuse     | The username the component will use for webhdfs HTTP calls to Hadoop server. |
 
 Usage
@@ -85,12 +85,11 @@ Completion Conditions
 =====================
 In general, all messages that belong to the same message group will get written to the same file. 
 There are, however, limits on the number of messages that will be written to a single file. It would 
-not make sense to write all messages to the same file because that file would grow too large. The 
+not make sense to write an unlimited number of messages to the same file because that file would grow too large. The 
 completion condition will determine how files get broken up into reasonable size files that make sense 
 for your environment. The values on these limits are configurable. You can control the frequency 
 and size of files that the component writes into Hadoop by configuring values for completion conditions.  
 The component will continue to append all messages belonging to the same message group, until either one of the 
-
 following two completion conditions occur.
 
 * aggregationTimeout – This configures the amount of time, in milliseconds, that a message group will remain active. The time measures idle time (no messages arrive.) Whenever a message arrives for a given message group, the timer starts over for that particular message group. If the timeout ever expires for a message group, the file will be written and no further messages will be appended to that file. 
@@ -101,14 +100,13 @@ As soon as one of the above limits is met for a given message group, the complet
 Default Logic
 =============
 The logic used for path is as follows:
- * 'path' as-is if included in client request.
- * If no 'path' header specified, set path value to be 'defaultDataDir' configured on webhdfs endpoint.
+ * 'path' as-is if included in client request. Append 'path' to the end of 'default.data.dir' configured on the webhdfs endpoint.
+ * If no 'path' header specified, set path value to be 'default.data.dir' configured on webhdfs endpoint.
 
 The logic used for correlation key is as follows:
  * If no 'key' header specified, use 'path' header for correlation key.
  * If 'key' is included by client in request, append the 'path' property to this 'key' to arrive at final 'key' value.
- * If no 'path' header or key specified, set key value to be 'defaultDataDir' configured on webhdfs endpoint.
-        
+ 
 More Examples
 =============
 
@@ -127,26 +125,50 @@ parameters. This gives clients control over how messages are grouped into files 
 For example, if client sends the following to above route:
 
     > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming"
+    > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming?key=A"
+    > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming?key=B"
+    > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming?key=C"
+    > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming?key=B"
+
+Now issue appropriate hadoop command to list the contents of directory where the files were written.
+The default data location written is '/user/fuse'. 
+   
     > hadoop fs -ls /user/fuse
-    > Found 1 items 
     > drwxr-xr-x   - fuse fuse  12 2013-09-10 09:45 /user/fuse/user_fuse_20131010142348492.txt
+    > drwxr-xr-x   - fuse fuse  12 2013-09-10 09:45 /user/fuse/user_fuse_A_20131010142448495.txt
+    > drwxr-xr-x   - fuse fuse  24 2013-09-10 09:45 /user/fuse/user_fuse_B_20131010142548499.txt
+    > drwxr-xr-x   - fuse fuse  12 2013-09-10 09:45 /user/fuse/user_fuse_C_20131010142648534.txt
 
-All messages sent with the same key 'mytest1' will be aggregated into same file.
+Notice a series of 5 messages sent through the route. The first is sent without a key and
+results in message getting its own message group (the component assigns a key based on default
+path). Subsequent messages are sent through with key=A, B, then C. A final message is sent
+with key=B. Note the file created to hold messages with key=B is twice as large as the others
+indicating an additional messages was appended to this file. The component will continue
+to keep these four message groups active until one of the completion conditions triggers.
+Also, notice how the filename is based on a combination of the path location, key, and a 
+generated timestamp of original message that triggered the new message group.
+The filename makes it easy to correlate messages to message groups.
 
-    > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming?key=mytest1&path=/test1
+Now we will send messages through with additional option for 'path' specifying where
+the file is written. The specified 'path' location '/mytest1' is relative to the default data location '/user/fuse'.
+
+    > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming?key=X&path=/test1
+    > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming?key=Y&path=/test1
+    > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming?key=Z&path=/test1
+    > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming?key=Y&path=/test1
+
+For message sent with only 'path' option specified, an internal 'key' is assigned under the covers
+by the component (based on the path) and resulting in an additional message group and a new file gets created: 
+    > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming?path=/test1
+
+Here is listing of the directory after sending the above five messages:
+
     > hadoop fs -ls /user/fuse/test1
-    > Found 1 items 
-    > drwxr-xr-x   - fuse fuse  12 2013-09-10 09:47 /user/fuse/test1/user_fuse_test1_mytest1_20131010142348804.txt
-    > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming?key=mytest1&path=/test1
-    > hadoop fs -ls /user/fuse/test1
-    > Found 1 items 
-    > drwxr-xr-x   - fuse fuse  24 2013-09-10 09:47 /user/fuse/test1/user_fuse_test1_mytest1_20131010142348804.txt
-    
-A new key 'mytest2' will create a new message group and all messages sent with that key will go to a different file.
+    > drwxr-xr-x   - fuse fuse  12 2013-09-10 09:45 /user/fuse/test1/user_fuse_test1_X_20131010142448495.txt
+    > drwxr-xr-x   - fuse fuse  24 2013-09-10 09:45 /user/fuse/test1/user_fuse_test1_Y_20131010142548499.txt
+    > drwxr-xr-x   - fuse fuse  12 2013-09-10 09:45 /user/fuse/test1/user_fuse_test1_Z_20131010142648534.txt
+    > drwxr-xr-x   - fuse fuse  12 2013-09-10 09:45 /user/fuse/test1/user_fuse_test1_20131010142348492.txt
 
-    > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming?key=mytest2&path=/test1
-    > hadoop fs -ls /user/fuse/test1
-    > Found 2 items 
-    > drwxr-xr-x   - fuse fuse  24 2013-09-10 09:47 /user/fuse/test1/user_fuse_test1_mytest1_20131010142348804.txt
-    > drwxr-xr-x   - fuse fuse  12 2013-09-10 09:49 /user/fuse/test1/user_fuse_test1_mytest2_20131010142349905.txt
-
+With this flexibility of specifying key and path, the component can support
+multiple client applications simultaneously. Each client can group its own messages to files in HDFS
+and physically isolate that data according to its own requirements.
