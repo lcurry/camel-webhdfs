@@ -15,6 +15,10 @@ Maven users will need to add the following dependency to their pom.xml for this 
 		</dependency>
 ```
 
+The implementation of the camel webhdfs component utilizes the
+[HTTP REST API interface into HDFS](http://hadoop.apache.org/docs/r2.1.0-beta/hadoop-project-dist/hadoop-hdfs/WebHDFS.html).
+
+
 URI Format
 ==========
 
@@ -61,7 +65,7 @@ Brief Background On The Aggregator Pattern
 ==========================================
 The implementation of the Camel WEBHDFS component leverages many features of the Aggregator pattern. 
 The aggregator is a generic component offered by Apache Camel. More information is available on the Camel 
-Aggregator see [see](http://camel.apache.org/aggregator2.html).
+Aggregator [here](http://camel.apache.org/aggregator2.html).
 
 Message Groups
 ==============
