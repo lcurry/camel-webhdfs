@@ -122,7 +122,7 @@ The following route listens for incoming HTTP messages and routes to HDFS.
 The above route will allow client sending HTTP messages to specify query string that contains (optional) 'path' and 'key' 
 parameters. This gives clients control over how messages are grouped into files and where files are written.
 
-For example, if client sends the following to above route:
+For example, if client sends a series of five messages sent through the route as follows. 
 
     > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming"
     > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming?key=A"
@@ -130,8 +130,8 @@ For example, if client sends the following to above route:
     > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming?key=C"
     > curl -i -X POST -T test.txt  "http://localhost:5160/ingestion/incoming?key=B"
 
-Now issue appropriate hadoop command to list the contents of directory where the files were written.
-The default data location written is '/user/fuse'. 
+The following lists the contents of directory where the files were written.
+The default data location written to is '/user/fuse'. 
    
     > hadoop fs -ls /user/fuse
     > drwxr-xr-x   - fuse fuse  12 2013-09-10 09:45 /user/fuse/user_fuse_20131010142348492.txt
@@ -139,15 +139,17 @@ The default data location written is '/user/fuse'.
     > drwxr-xr-x   - fuse fuse  24 2013-09-10 09:45 /user/fuse/user_fuse_B_20131010142548499.txt
     > drwxr-xr-x   - fuse fuse  12 2013-09-10 09:45 /user/fuse/user_fuse_C_20131010142648534.txt
 
-Notice a series of 5 messages sent through the route. The first is sent without a key and
+The first curl commands sends a message into the camel hdfs component without a key and
 results in message getting its own message group (the component assigns a key based on default
 path). Subsequent messages are sent through with key=A, B, then C. A final message is sent
-with key=B. Note the file created to hold messages with key=B is twice as large as the others
+again with key=B. Note the file created to hold messages with key=B is now twice as large as the others
 indicating an additional messages was appended to this file. The component will continue
 to keep these four message groups active until one of the completion conditions triggers.
-Also, notice how the filename is based on a combination of the path location, key, and a 
-generated timestamp of original message that triggered the new message group.
-The filename makes it easy to correlate messages to message groups.
+
+A note on filenames: The filename that is generate is based on a combination of the path 
+location, key, and a generated timestamp. The timestamp is based on when original message triggering
+the new message group first arrived at component. The unique filename makes it easy to correlate 
+messages to message groups.
 
 Now we will send messages through with additional option for 'path' specifying where
 the file is written. The specified 'path' location '/mytest1' is relative to the default data location '/user/fuse'.
