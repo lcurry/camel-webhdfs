@@ -101,8 +101,8 @@ following two completion conditions occur.
 
 As soon as one of the above limits is met for a given message group, the completion condition will fire. The message that caused the completion condition to trigger will be the last message written to the file. At that point, the file associated with the message group will be marked as done and no more messages are written to that file. Subsequent messages will be assigned to a new message group, and written to a new file.
 
-Default Logic
-=============
+Default Logic for Key
+=====================
 The logic used for path is as follows:
  * 'path' as-is if included in client request. Append 'path' to the end of 'default.data.dir' configured on the webhdfs endpoint.
  * If no 'path' header specified, set path value to be 'default.data.dir' configured on webhdfs endpoint.
